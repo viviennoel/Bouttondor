@@ -1,0 +1,82 @@
+version: "3"
+
+services:
+  reverse-proxy:
+    image: traefik:v1.7
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro # So that Traefik can listen to the Docker events
+      - ./traefik.toml:/etc/traefik/traefik.toml:ro
+      - ./acme.json:/acme.json
+    networks:
+      - traefik-net
+    deploy:
+      mode: global
+      placement:
+        constraints:
+          - node.role == manager
+      update_config:
+        parallelism: 1
+        delay: 10s
+      restart_policy:
+        condition: on-failure
+        # labels:
+        # traefik.enable: "true"
+        # traefik.port: "8080"
+        #  traefik.docker.network: "tf_traefik-net"
+        # traefik.frontend.rule: "Host:traefik.bouttondor.com"
+
+  backend:
+    container_name: backend
+    image: latest123/backend
+    restart: always
+    networks:
+      - traefik-net
+    deploy:
+      replicas: 1
+      update_config:
+        delay: 60s
+      labels:
+        traefik.enable: "true"
+        traefik.port: "3000"
+        traefik.docker.network: "tf_traefik-net"
+        traefik.frontend.rule: "Host:api.bouttondor.com"
+    links:
+      - mongo
+
+  frontend:
+    container_name: frontend
+    image: latest123/frontend
+    restart: always
+    networks:
+      - traefik-net
+    deploy:
+      replicas: 1
+      update_config:
+        delay: 60s
+      labels:
+        traefik.enable: "true"
+        traefik.port: "80"
+        traefik.docker.network: "tf_traefik-net"
+        traefik.frontend.rule: "Host:www.bouttondor.com, bouttondor.com"
+        traefik.frontend.redirect.regex: "^http(s)?://www.bouttondor.com/(.*)"
+        traefik.frontend.redirect.replacement: "https://bouttondor.com/$$2"
+        traefik.frontend.redirect.permanent: "true"
+        traefik.frontend.priority: 10
+
+  mongo:
+    container_name: mongo
+    image: mongo
+    volumes:
+      - ./data:/data/db
+    networks:
+      - traefik-net
+    ports:
+      - '27018:27017'
+
+networks:
+  traefik-net:
+    driver: overlay
