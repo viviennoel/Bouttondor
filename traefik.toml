@@ -27,5 +27,5 @@ OnHostRule = true
 [acme.tlsChallenge]
 
 [[acme.domains]]
-  main="troisfils.com"
+  main="bouttondor.com"
   sans=["www.bouttondor.com", "api.bouttondor.com", "traefik.bouttondor.com"]
